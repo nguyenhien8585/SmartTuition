@@ -9,7 +9,7 @@ import { AttendanceManager } from './components/AttendanceManager';
 import { Student, BankConfig, AppTab } from './types';
 import { DEFAULT_BANK_CONFIG } from './constants';
 import { getStudents, saveStudents } from './services/storageService';
-import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet } from 'lucide-react';
+import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Helper to get local date string YYYY-MM-DD
@@ -64,6 +64,7 @@ export default function App() {
     const now = new Date();
     return `${now.getMonth() + 1}/${now.getFullYear()}`;
   });
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   // Edit Modal State
@@ -262,7 +263,11 @@ export default function App() {
   const filteredStudents = students.filter(s => {
       const matchClass = selectedClass === 'ALL' || String(s.className || 'Khác') === selectedClass;
       const matchMonth = selectedMonth === 'ALL' || (s.month || 'Không xác định') === selectedMonth;
-      return matchClass && matchMonth;
+      
+      const term = searchTerm.toLowerCase();
+      const matchSearch = term === '' || s.name.toLowerCase().includes(term);
+
+      return matchClass && matchMonth && matchSearch;
   });
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
@@ -496,6 +501,21 @@ export default function App() {
                             <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
                                 Danh sách ({filteredStudents.length})
                             </h2>
+                            <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2 py-1.5">
+                                <Search size={16} className="text-gray-500"/>
+                                <input 
+                                    type="text"
+                                    placeholder="Tìm tên..."
+                                    className="outline-none text-sm text-gray-700 bg-transparent w-32 sm:w-48"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="text-gray-400 hover:text-gray-600">
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
                             <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2 py-1.5">
                                 <Filter size={16} className="text-gray-500"/>
                                 <select 
