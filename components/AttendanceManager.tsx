@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Student } from '../types';
-import { CalendarCheck, Check, X, ChevronDown, ChevronUp, AlertCircle, Calendar, Users, CheckSquare, Square } from 'lucide-react';
+import { CalendarCheck, Check, X, ChevronDown, ChevronUp, AlertCircle, Calendar, Users, CheckSquare, Square, Filter } from 'lucide-react';
 
 interface AttendanceManagerProps {
   students: Student[];
@@ -9,7 +9,7 @@ interface AttendanceManagerProps {
   onBulkCheckIn: (studentIds: string[]) => void;
   calculateTotal: (s: Student) => number;
   fmtMoney: (n: number) => string;
-  today: string; // Receive synchronized date from parent
+  today: string; // Receive synchronized date from parent YYYY-MM-DD
 }
 
 export const AttendanceManager: React.FC<AttendanceManagerProps> = ({ 
@@ -21,6 +21,13 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
     today
 }) => {
   const [selectedClass, setSelectedClass] = useState<string>('ALL');
+  
+  // Initialize selected month based on "today" prop (format M/YYYY to match data)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+      const d = new Date(today);
+      return `${d.getMonth() + 1}/${d.getFullYear()}`;
+  });
+
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
 
   // Bulk Modal State
@@ -34,11 +41,31 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
       excludedIds: []
   });
 
-  const uniqueClasses = Array.from(new Set(students.map(s => String(s.className || 'Khác')))).sort();
+  // Extract Unique Classes
+  const uniqueClasses = useMemo(() => {
+      return Array.from(new Set(students.map(s => String(s.className || 'Khác')))).sort();
+  }, [students]);
 
-  const filteredStudents = students.filter(s => 
-    selectedClass === 'ALL' || String(s.className || 'Khác') === selectedClass
-  );
+  // Extract Unique Months (Sorted Newest First)
+  const uniqueMonths = useMemo(() => {
+      return Array.from(new Set(students.map(s => s.month || 'Không xác định')))
+        .sort((a, b) => {
+            if (a === 'Không xác định') return 1;
+            if (b === 'Không xác định') return -1;
+            const [m1, y1] = a.split('/').map(Number);
+            const [m2, y2] = b.split('/').map(Number);
+            // Sort by Year Desc, then Month Desc
+            if (y1 !== y2) return y2 - y1;
+            return m2 - m1;
+        });
+  }, [students]);
+
+  // Filter Logic
+  const filteredStudents = students.filter(s => {
+    const matchClass = selectedClass === 'ALL' || String(s.className || 'Khác') === selectedClass;
+    const matchMonth = selectedMonth === 'ALL' || (s.month || 'Không xác định') === selectedMonth;
+    return matchClass && matchMonth;
+  });
 
   const handleCheckIn = (student: Student) => {
     const history = student.attendanceHistory || [];
@@ -116,10 +143,26 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
+            {/* Month Filter */}
             <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 shadow-sm">
+                <Calendar size={16} className="text-gray-500"/>
+                <span className="text-sm text-gray-500 font-medium">Tháng:</span>
+                <select 
+                    className="outline-none text-sm text-gray-700 bg-transparent font-bold cursor-pointer"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                >
+                    {uniqueMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                    {uniqueMonths.length === 0 && <option value={selectedMonth}>{selectedMonth}</option>}
+                </select>
+            </div>
+
+            {/* Class Filter */}
+            <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 shadow-sm">
+                <Filter size={16} className="text-gray-500"/>
                 <span className="text-sm text-gray-500 font-medium">Lớp:</span>
                 <select 
-                    className="outline-none text-sm text-gray-700 bg-transparent min-w-[120px]"
+                    className="outline-none text-sm text-gray-700 bg-transparent min-w-[100px] cursor-pointer"
                     value={selectedClass}
                     onChange={(e) => setSelectedClass(e.target.value)}
                 >
@@ -130,10 +173,10 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
             
             <button 
                 onClick={handleBulkCheckInClick}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm transition ml-auto md:ml-0"
             >
                 <Users size={16} />
-                Điểm danh tất cả hôm nay
+                Điểm danh tất cả
             </button>
         </div>
       </div>
@@ -143,9 +186,9 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
           <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
               <p className="text-sm text-indigo-600 font-medium">Hôm nay ({new Date(today).toLocaleDateString('vi-VN')})</p>
               <p className="text-2xl font-bold text-indigo-800">
-                  {students.filter(s => (s.attendanceHistory || []).includes(today)).length} / {students.length}
+                  {filteredStudents.filter(s => (s.attendanceHistory || []).includes(today)).length} / {filteredStudents.length}
               </p>
-              <p className="text-xs text-indigo-400">Đã điểm danh</p>
+              <p className="text-xs text-indigo-400">Đã điểm danh (Tháng {selectedMonth})</p>
           </div>
       </div>
 
@@ -177,7 +220,13 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
                                 <tr className={`hover:bg-gray-50 transition-colors ${isFull ? 'bg-yellow-50 hover:bg-yellow-100' : ''}`}>
                                     <td className="p-4">
                                         <div className="font-bold text-gray-800">{student.name}</div>
-                                        <div className="text-xs text-gray-500">{student.className}</div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 rounded">{student.className}</span>
+                                            {/* Show month badge only if viewing ALL */}
+                                            {selectedMonth === 'ALL' && (
+                                                <span className="text-[10px] text-blue-500 border border-blue-200 px-1 rounded">{student.month}</span>
+                                            )}
+                                        </div>
                                         {isFull && (
                                             <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full">
                                                 <AlertCircle size={10} /> Đủ 8 buổi - Cần đóng tiền
@@ -256,7 +305,7 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
                                         <td colSpan={5} className="p-4">
                                             <div className="bg-white border border-gray-200 rounded-lg p-4 max-w-2xl mx-auto shadow-inner">
                                                 <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                                                    <Calendar size={16} /> Lịch sử điểm danh
+                                                    <Calendar size={16} /> Lịch sử điểm danh (Tháng {student.month})
                                                 </h4>
                                                 
                                                 {history.length === 0 ? (
@@ -299,7 +348,9 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
                     })}
                     {filteredStudents.length === 0 && (
                         <tr>
-                            <td colSpan={5} className="p-8 text-center text-gray-400">Không có học sinh trong lớp này.</td>
+                            <td colSpan={5} className="p-8 text-center text-gray-400">
+                                Không có học sinh trong tháng <b>{selectedMonth}</b> {selectedClass !== 'ALL' ? `lớp ${selectedClass}` : ''}.
+                            </td>
                         </tr>
                     )}
                 </tbody>
@@ -317,7 +368,9 @@ export const AttendanceManager: React.FC<AttendanceManagerProps> = ({
                             <Users className="text-indigo-600" size={20} />
                             Điểm danh hàng loạt
                         </h3>
-                        <p className="text-xs text-gray-500 mt-1">Ngày: {new Date(today).toLocaleDateString('vi-VN')}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Ngày: {new Date(today).toLocaleDateString('vi-VN')} | Tháng: {selectedMonth}
+                        </p>
                     </div>
                     <button onClick={() => setBulkModal({...bulkModal, isOpen: false})} className="text-gray-400 hover:text-gray-600">
                         <X size={24} />
