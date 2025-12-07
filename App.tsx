@@ -9,7 +9,7 @@ import { AttendanceManager } from './components/AttendanceManager';
 import { Student, BankConfig, AppTab } from './types';
 import { DEFAULT_BANK_CONFIG } from './constants';
 import { getStudents, saveStudents } from './services/storageService';
-import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet, Search } from 'lucide-react';
+import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet, Search, Calculator } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // Helper to get local date string YYYY-MM-DD
@@ -85,9 +85,10 @@ export default function App() {
       open: boolean; 
       student: Student | null; 
       date: string; 
-      method: 'CASH' | 'TRANSFER' 
+      method: 'CASH' | 'TRANSFER';
+      amount: number; // Actual amount being paid
   }>({
-      open: false, student: null, date: '', method: 'TRANSFER'
+      open: false, student: null, date: '', method: 'TRANSFER', amount: 0
   });
 
   // Hydrate Bank Config from localStorage
@@ -166,20 +167,27 @@ export default function App() {
       if (s.isPaid) {
           // If unchecking, just ask for simple confirmation
           if (confirm(`Hủy trạng thái ĐÃ THU TIỀN của học sinh ${s.name}?`)) {
+              const totalDue = calculateTotal(s);
               setStudents(prev => prev.map(st => st.id === id ? { 
                   ...st, 
                   isPaid: false, 
                   paidDate: undefined, 
-                  paymentMethod: undefined 
+                  paymentMethod: undefined,
+                  paidAmount: undefined,
+                  balance: -totalDue // Reset balance to negative total due (debt)
               } : st));
           }
       } else {
+          // Calculate default amount (Total Due)
+          const totalDue = calculateTotal(s);
+          
           // If checking, open modal to confirm details
           setPaymentModal({
               open: true,
               student: s,
               date: getLocalDateString(),
-              method: 'TRANSFER'
+              method: 'TRANSFER',
+              amount: totalDue // Default to full payment
           });
       }
   };
@@ -188,16 +196,20 @@ export default function App() {
   const handleConfirmPayment = () => {
       if (!paymentModal.student) return;
       
-      const { student, date, method } = paymentModal;
+      const { student, date, method, amount } = paymentModal;
+      const totalDue = calculateTotal(student);
+      const newBalance = amount - totalDue; // e.g. Paid 300, Due 500 => Balance -200 (Debt)
       
       setStudents(prev => prev.map(s => s.id === student.id ? {
           ...s,
           isPaid: true,
           paidDate: date,
-          paymentMethod: method
+          paymentMethod: method,
+          paidAmount: amount,
+          balance: newBalance
       } : s));
       
-      setPaymentModal({ open: false, student: null, date: '', method: 'TRANSFER' });
+      setPaymentModal({ open: false, student: null, date: '', method: 'TRANSFER', amount: 0 });
   };
 
   const handleToggleSent = (id: string) => {
@@ -274,7 +286,7 @@ export default function App() {
 
   // Stats
   const statsTotal = filteredStudents.reduce((sum, s) => sum + calculateTotal(s), 0);
-  const statsCollected = filteredStudents.filter(s => s.isPaid).reduce((sum, s) => sum + calculateTotal(s), 0);
+  const statsCollected = filteredStudents.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || calculateTotal(s)), 0);
   const statsRemaining = statsTotal - statsCollected;
 
   const fmtMoney = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
@@ -301,6 +313,8 @@ export default function App() {
             "Nội dung điều chỉnh": s.adjustmentContent,
             "Số tiền điều chỉnh": s.adjustmentAmount,
             "Tổng phải thu": total,
+            "Đã thu": s.paidAmount || (s.isPaid ? total : 0),
+            "Còn thiếu": s.isPaid ? (total - (s.paidAmount || total)) : total,
             "Trạng thái nộp": s.isPaid ? "Đã nộp" : "Chưa nộp",
             "Ngày nộp": s.paidDate || "",
             "Hình thức đóng": methodText,
@@ -592,12 +606,39 @@ export default function App() {
                         <div className="mb-4 text-center">
                             <p className="text-gray-500 text-sm">Học sinh</p>
                             <p className="text-xl font-bold text-gray-800">{paymentModal.student.name}</p>
-                            <p className="text-2xl font-black text-green-600 mt-1">
-                                {fmtMoney(calculateTotal(paymentModal.student))} đ
-                            </p>
+                            
+                            <div className="flex justify-between items-center mt-3 text-sm bg-gray-50 p-2 rounded">
+                                <span className="text-gray-500">Cần thu:</span>
+                                <span className="font-bold text-gray-800">
+                                    {fmtMoney(calculateTotal(paymentModal.student))} đ
+                                </span>
+                            </div>
                         </div>
 
                         <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số tiền thực thu</label>
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        value={formatCurrencyInput(paymentModal.amount)}
+                                        onChange={(e) => setPaymentModal({...paymentModal, amount: parseCurrencyInput(e.target.value)})}
+                                        className="w-full p-2.5 border-2 border-green-500 rounded-lg focus:outline-none text-xl font-bold text-green-700 text-right pr-8"
+                                    />
+                                    <span className="absolute right-3 top-3 text-gray-400 font-bold">đ</span>
+                                </div>
+                                {/* Calculated Difference */}
+                                {(() => {
+                                    const totalDue = calculateTotal(paymentModal.student);
+                                    const diff = paymentModal.amount - totalDue;
+                                    return (
+                                        <div className={`text-right text-xs mt-1 font-bold ${diff < 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                            {diff < 0 ? `Còn thiếu: ${fmtMoney(Math.abs(diff))}` : (diff > 0 ? `Dư: ${fmtMoney(diff)}` : 'Đủ')}
+                                        </div>
+                                    )
+                                })()}
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày thu</label>
                                 <input 
@@ -642,7 +683,7 @@ export default function App() {
                                 onClick={handleConfirmPayment}
                                 className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold"
                             >
-                                Đã Thu
+                                Xác nhận
                             </button>
                         </div>
                     </div>
@@ -843,26 +884,32 @@ export default function App() {
                             <th className="border border-black p-2 text-center">Lớp</th>
                             <th className="border border-black p-2 text-center">Số buổi</th>
                             <th className="border border-black p-2 text-right">Tổng Tiền</th>
+                            <th className="border border-black p-2 text-right">Đã Nộp</th>
                             <th className="border border-black p-2 text-center">Ngày nộp</th>
                             <th className="border border-black p-2 text-left w-32">Ghi chú</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredStudents.map((s, idx) => (
-                            <tr key={s.id}>
-                                <td className="border border-black p-2 text-center">{idx + 1}</td>
-                                <td className="border border-black p-2 font-medium">{s.name}</td>
-                                <td className="border border-black p-2 text-center">{s.className}</td>
-                                <td className="border border-black p-2 text-center">{s.attendanceCount || 0}/8</td>
-                                <td className="border border-black p-2 text-right font-bold">{fmtMoney(calculateTotal(s))}</td>
-                                <td className="border border-black p-2 text-center">
-                                    {s.isPaid ? (s.paidDate ? new Date(s.paidDate).toLocaleDateString('vi-VN') : 'Đã thu') : '-'}
-                                </td>
-                                <td className="border border-black p-2 text-left italic text-xs">
-                                    {s.note}
-                                </td>
-                            </tr>
-                        ))}
+                        {filteredStudents.map((s, idx) => {
+                            const total = calculateTotal(s);
+                            const paid = s.paidAmount || (s.isPaid ? total : 0);
+                            return (
+                                <tr key={s.id}>
+                                    <td className="border border-black p-2 text-center">{idx + 1}</td>
+                                    <td className="border border-black p-2 font-medium">{s.name}</td>
+                                    <td className="border border-black p-2 text-center">{s.className}</td>
+                                    <td className="border border-black p-2 text-center">{s.attendanceCount || 0}/8</td>
+                                    <td className="border border-black p-2 text-right font-bold">{fmtMoney(total)}</td>
+                                    <td className="border border-black p-2 text-right">{fmtMoney(paid)}</td>
+                                    <td className="border border-black p-2 text-center">
+                                        {s.isPaid ? (s.paidDate ? new Date(s.paidDate).toLocaleDateString('vi-VN') : 'Đã thu') : '-'}
+                                    </td>
+                                    <td className="border border-black p-2 text-left italic text-xs">
+                                        {s.note}
+                                    </td>
+                                </tr>
+                            )
+                        })}
                     </tbody>
                 </table>
             </div>,
