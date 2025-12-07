@@ -29,6 +29,9 @@ export const StudentRow: React.FC<StudentRowProps> = ({
   onDelete,
 }) => {
   const total = calculateTotal(student);
+  const paidAmount = student.paidAmount !== undefined ? student.paidAmount : (student.isPaid ? total : 0);
+  const isPartial = student.isPaid && paidAmount < total;
+
   const safeClassName = String(student.className || '');
   const displayClass = safeClassName.toLowerCase().startsWith('lớp') ? safeClassName : `Lớp ${safeClassName}`;
   
@@ -139,10 +142,22 @@ export const StudentRow: React.FC<StudentRowProps> = ({
             <div className="flex items-center justify-between sm:block min-w-[100px] text-right">
                 <div className="sm:hidden text-sm text-gray-500 font-medium">Tổng thu:</div>
                 <div>
-                    <div className={`text-lg font-bold ${student.isPaid ? 'text-green-600' : 'text-primary'}`}>
-                        {fmtMoney(total)}
-                    </div>
-                    {student.adjustmentAmount !== 0 && (
+                    {student.isPaid && isPartial ? (
+                        <>
+                            <div className="text-lg font-bold text-orange-600">
+                                {fmtMoney(paidAmount)}
+                            </div>
+                            <div className="text-xs text-red-500 font-medium">
+                                Thiếu: {fmtMoney(total - paidAmount)}
+                            </div>
+                        </>
+                    ) : (
+                        <div className={`text-lg font-bold ${student.isPaid ? 'text-green-600' : 'text-primary'}`}>
+                            {fmtMoney(total)}
+                        </div>
+                    )}
+
+                    {!student.isPaid && student.adjustmentAmount !== 0 && (
                         <div className={`text-xs ${student.adjustmentAmount! < 0 ? 'text-red-500' : 'text-orange-500'}`}>
                             {student.adjustmentAmount! > 0 ? '+' : ''}{fmtMoney(student.adjustmentAmount!)}
                         </div>
