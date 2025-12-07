@@ -9,8 +9,11 @@ import { AttendanceManager } from './components/AttendanceManager';
 import { Student, BankConfig, AppTab } from './types';
 import { DEFAULT_BANK_CONFIG } from './constants';
 import { getStudents, saveStudents } from './services/storageService';
-import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet, Search, Calculator } from 'lucide-react';
+import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet, Search, Calculator, Lock, LogOut, KeyRound, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
+
+// SECRET CODE CONFIGURATION
+const APP_SECRET_CODE = "123456789@2025@"; // MÃ BÍ MẬT MẶC ĐỊNH
 
 // Helper to get local date string YYYY-MM-DD
 export const getLocalDateString = () => {
@@ -48,6 +51,11 @@ const fromInputMonth = (inputStr: string) => {
 };
 
 export default function App() {
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [authError, setAuthError] = useState('');
+
   // State
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.INPUT);
   // Initialize from storage instead of empty array
@@ -91,6 +99,14 @@ export default function App() {
       open: false, student: null, date: '', method: 'TRANSFER', amount: 0
   });
 
+  // Check Auth on Mount
+  useEffect(() => {
+      const isAuth = localStorage.getItem('smarttuition_auth');
+      if (isAuth === 'true') {
+          setIsAuthenticated(true);
+      }
+  }, []);
+
   // Hydrate Bank Config from localStorage
   useEffect(() => {
     const savedBank = localStorage.getItem('tuition_bank_config');
@@ -101,6 +117,25 @@ export default function App() {
   useEffect(() => {
     saveStudents(students);
   }, [students]);
+
+  // --- AUTH HANDLERS ---
+  const handleLogin = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (passcodeInput === APP_SECRET_CODE) {
+          setIsAuthenticated(true);
+          localStorage.setItem('smarttuition_auth', 'true');
+          setAuthError('');
+      } else {
+          setAuthError('Mã bí mật không đúng');
+          setPasscodeInput('');
+      }
+  };
+
+  const handleLogout = () => {
+      setIsAuthenticated(false);
+      localStorage.removeItem('smarttuition_auth');
+      setPasscodeInput('');
+  };
 
   // Handlers
   const handleSaveConfig = (config: BankConfig) => {
@@ -337,6 +372,46 @@ export default function App() {
   // Portal Target
   const printMount = document.getElementById('print-mount');
 
+  // --- RENDER LOGIN SCREEN IF NOT AUTHENTICATED ---
+  if (!isAuthenticated) {
+      return (
+          <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+              <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm animate-fade-in border border-slate-200">
+                  <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600">
+                      <Lock size={32} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">SmartTuition</h2>
+                  <p className="text-slate-500 text-center mb-6 text-sm">Vui lòng nhập mã bí mật để truy cập</p>
+                  
+                  <form onSubmit={handleLogin} className="space-y-4">
+                      <div>
+                          <div className="relative">
+                              <KeyRound className="absolute left-3 top-3 text-slate-400" size={20} />
+                              <input 
+                                  type="password" 
+                                  value={passcodeInput}
+                                  onChange={(e) => setPasscodeInput(e.target.value)}
+                                  placeholder="Nhập mã..."
+                                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                                  autoFocus
+                              />
+                          </div>
+                          {authError && <p className="text-red-500 text-xs mt-2 pl-1 font-medium">{authError}</p>}
+                      </div>
+                      <button 
+                          type="submit"
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-200 active:scale-95 flex items-center justify-center gap-2"
+                      >
+                          Truy cập hệ thống <ChevronRight size={18} />
+                      </button>
+                  </form>
+                  <p className="text-center text-xs text-slate-400 mt-6">Mã mặc định: 123456</p>
+              </div>
+          </div>
+      )
+  }
+
+  // --- RENDER MAIN APP ---
   return (
     <div className="min-h-screen pb-20 print:hidden font-sans">
       {/* Navbar - Hidden on Print */}
@@ -381,6 +456,16 @@ export default function App() {
               >
                 <Settings size={18} />
                 <span className="hidden sm:inline">Cấu Hình</span>
+              </button>
+              
+              <div className="h-6 w-px bg-gray-300 mx-2 hidden sm:block"></div>
+              
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 rounded-md text-sm font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition flex items-center gap-2"
+                title="Đăng xuất / Khóa màn hình"
+              >
+                <LogOut size={18} />
               </button>
             </div>
           </div>
