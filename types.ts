@@ -14,6 +14,7 @@ export interface Student {
   isPaid?: boolean;
   paidDate?: string; // YYYY-MM-DD
   paymentMethod?: 'CASH' | 'TRANSFER'; // Hình thức thanh toán
+  paidAmount?: number; // Số tiền thực tế đã đóng
   paymentDeadline?: string; // Ngày hạn nộp (VD: 10, 15, 20...)
   
   // Attendance
