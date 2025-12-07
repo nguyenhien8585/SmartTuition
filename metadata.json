@@ -1,0 +1,5 @@
+{
+  "name": "SmartTuition - Tạo Phiếu Thu Học Phí",
+  "description": "Ứng dụng chuyên nghiệp tạo phiếu thu học phí tự động. Hỗ trợ nhập liệu thông minh qua AI, tính toán khấu trừ nghỉ học, nợ cũ và tạo mã QR chuyển khoản VietQR chính xác.",
+  "requestFramePermissions": []
+}

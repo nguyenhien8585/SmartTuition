@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartTuition - Hệ thống phiếu thu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#0F52BA', // Sapphire Blue
+              secondary: '#E6F0FA',
+              accent: '#FF6B6B',
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f3f4f6;
+      }
+      
+      /* PRINT CSS - REACT PORTAL METHOD */
+      @media print {
+        /* 1. Reset Page */
+        body, html {
+          background-color: white;
+          height: auto;
+          overflow: visible;
+          margin: 0;
+          padding: 0;
+        }
+
+        /* 2. Hide the App completely */
+        #root {
+            display: none !important;
+        }
+
+        /* 3. Show the Portal Mount */
+        #print-mount {
+          display: block !important;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          z-index: 9999;
+          background: white;
+          padding: 20px;
+        }
+
+        /* 4. Ensure Table borders are visible */
+        table, th, td {
+          border: 1px solid #000 !important;
+          border-collapse: collapse !important;
+        }
+        
+        /* Hide non-print elements inside the portal just in case */
+        .no-print {
+            display: none !important;
+        }
+      }
+      
+      /* Hide print mount on screen */
+      #print-mount {
+          display: none;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "vite": "https://aistudiocdn.com/vite@^7.2.6",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "url": "https://aistudiocdn.com/url@^0.11.4"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <!-- PORTAL TARGET: Ngang hàng với root để tránh bị ẩn khi in -->
+    <div id="print-mount"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
