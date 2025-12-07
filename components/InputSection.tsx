@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Student } from '../types';
-import { Plus, FileSpreadsheet, Download, Upload, Loader2, FileUp } from 'lucide-react';
+import { Plus, FileSpreadsheet, Download, Upload, Loader2, FileUp, AlertCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
 
@@ -34,15 +34,18 @@ const isPastMonth = (monthStr: string): boolean => {
     return false;
 };
 
-// Helper to generate 8 dummy dates for a past month to ensure "Full" status
-const generatePastMonthAttendance = (monthStr: string): string[] => {
+// Helper to generate N dummy dates for a past month
+const generatePastMonthAttendance = (monthStr: string, count: number = 8): string[] => {
     const [m, y] = monthStr.split('/');
     // Format YYYY-MM
     const year = y;
     const month = m.padStart(2, '0');
     
-    // Generate dates from 01 to 08
-    return Array.from({ length: 8 }, (_, i) => {
+    // Cap at 31 days to be safe, though context implies max 8 sessions usually
+    const safeCount = Math.min(count, 28); 
+    
+    // Generate dates from 01 to N
+    return Array.from({ length: safeCount }, (_, i) => {
         const day = String(i + 1).padStart(2, '0');
         return `${year}-${month}-${day}`;
     });
@@ -52,12 +55,19 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
   const [mode, setMode] = useState<'manual' | 'excel'>('manual');
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isPast = isPastMonth(currentMonth);
   
-  const [manualForm, setManualForm] = useState<Partial<Student>>({
+  const [manualForm, setManualForm] = useState<Partial<Student> & { attendanceCount?: number }>({
     baseFee: 0,
     adjustmentAmount: 0,
     adjustmentContent: '',
+    attendanceCount: 8, // Default to full for past months
   });
+
+  // Reset attendance count default when month changes
+  useEffect(() => {
+      setManualForm(prev => ({ ...prev, attendanceCount: 8 }));
+  }, [currentMonth]);
 
   // Updated Duplicate Check: Include Month
   const checkDuplicate = (name: string, className: string): boolean => {
@@ -90,9 +100,10 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
     const fee = Number(manualForm.baseFee) || 0;
     const adj = Number(manualForm.adjustmentAmount) || 0;
 
-    // Determine initial attendance based on month
-    const isPast = isPastMonth(currentMonth);
-    const initialHistory = isPast ? generatePastMonthAttendance(currentMonth) : [];
+    // Determine initial attendance based on month and input
+    const initialHistory = isPast 
+        ? generatePastMonthAttendance(currentMonth, manualForm.attendanceCount ?? 8) 
+        : [];
     const initialCount = initialHistory.length;
 
     const newStudent: Student = {
@@ -119,10 +130,11 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
         name: '',
         className: '',
         note: '',
+        attendanceCount: 8
     });
     
     if (isPast) {
-        alert(`Đã thêm học sinh vào tháng cũ (${currentMonth}). Hệ thống tự động điền đủ 8 buổi.`);
+        alert(`Đã thêm học sinh vào tháng cũ (${currentMonth}) với ${initialCount} buổi học.`);
     }
   };
 
@@ -131,6 +143,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
         {
             "Họ và Tên": "Nguyễn Văn A",
             "Lớp": "Piano 01",
+            "Số buổi": 8,
             "Học phí": 500000,
             "Nội dung điều chỉnh": "Nghỉ 1 buổi",
             "Số tiền điều chỉnh": -50000,
@@ -138,6 +151,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
         {
             "Họ và Tên": "Trần Thị B",
             "Lớp": "Vẽ T7",
+            "Số buổi": 4,
             "Học phí": 800000,
             "Nội dung điều chỉnh": "Nợ tháng trước",
             "Số tiền điều chỉnh": 200000,
@@ -161,11 +175,6 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
 
           const students: Student[] = [];
           const duplicates: string[] = [];
-
-          // Pre-calculate attendance for this batch
-          const isPast = isPastMonth(currentMonth);
-          const initialHistory = isPast ? generatePastMonthAttendance(currentMonth) : [];
-          const initialCount = initialHistory.length;
 
           jsonData.forEach((row: any) => {
               // 1. Name
@@ -196,6 +205,20 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
               const amountKey = keys.find(k => k.toLowerCase().includes('số tiền điều chỉnh'));
               const adjustmentAmount = amountKey ? (Number(row[amountKey]) || 0) : 0;
               
+              // 6. Attendance Count (For Past Months)
+              let initialHistory: string[] = [];
+              if (isPast) {
+                  // Look for "Số buổi" column
+                  const countKey = keys.find(k => k.toLowerCase().includes('số buổi') || k.toLowerCase().includes('buổi'));
+                  let count = 8; // Default to 8 if not found
+                  if (countKey && row[countKey] !== undefined) {
+                      count = Number(row[countKey]);
+                  }
+                  initialHistory = generatePastMonthAttendance(currentMonth, count);
+              }
+
+              const initialCount = initialHistory.length;
+
               students.push({
                   id: uuidv4(),
                   name,
@@ -227,7 +250,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
             setMode('manual'); 
             let msg = `Đã nhập thành công ${students.length} học sinh vào tháng ${currentMonth}!`;
             if (isPast) {
-                msg += `\n(Vì là tháng cũ nên đã tự động điểm danh đủ 8 buổi)`;
+                msg += `\n(Tháng cũ: Đã tự động tạo dữ liệu điểm danh theo file)`;
             }
             alert(msg);
           } else {
@@ -262,7 +285,11 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
 
       {mode === 'manual' && (
         <form onSubmit={handleManualSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-fade-in">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">Thêm học sinh mới (Tháng {currentMonth})</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center justify-between">
+              <span>Thêm học sinh mới</span>
+              <span className="text-sm font-normal bg-blue-50 text-blue-600 px-2 py-1 rounded">Tháng {currentMonth}</span>
+          </h3>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Họ và tên <span className="text-red-500">*</span></label>
@@ -323,6 +350,26 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
                 </div>
             </div>
 
+            {isPast && (
+                <div className="md:col-span-2 bg-yellow-50 p-3 rounded-lg border border-yellow-200 flex items-center gap-3">
+                    <AlertCircle className="text-yellow-600" size={24} />
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold text-yellow-800 uppercase mb-1">Số buổi học thực tế (Tháng cũ)</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                max="31"
+                                className="w-20 p-2 border border-yellow-300 rounded focus:border-yellow-500 outline-none font-bold text-center"
+                                value={manualForm.attendanceCount}
+                                onChange={e => setManualForm({...manualForm, attendanceCount: Number(e.target.value)})}
+                            />
+                            <span className="text-sm text-yellow-700">buổi (Hệ thống sẽ tự tạo dữ liệu điểm danh)</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Ghi chú khác</label>
               <input
@@ -351,6 +398,11 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
                       Tải lên file Excel (.xlsx) chứa danh sách học sinh. 
                       Hệ thống sẽ tự động gán tháng <b>{currentMonth}</b> cho dữ liệu nhập vào.
                   </p>
+                  {isPast && (
+                      <p className="text-yellow-600 text-sm mt-2 font-medium bg-yellow-50 p-2 rounded inline-block">
+                          Lưu ý: Vì là tháng cũ, hãy thêm cột "Số buổi" trong Excel nếu muốn chính xác. Nếu không có sẽ mặc định là 8 buổi.
+                      </p>
+                  )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -363,7 +415,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onAddStudents, exist
                           <span className="font-semibold text-gray-700">Bước 1: Tải file mẫu mới</span>
                       </div>
                       <p className="text-sm text-gray-500 mb-3">
-                          File mẫu mới với 5 cột: Họ tên, Lớp, Học phí, Nội dung điều chỉnh, Số tiền điều chỉnh.
+                          File mẫu với các cột: Họ tên, Lớp, <b>Số buổi</b>, Học phí, Nội dung điều chỉnh, Số tiền điều chỉnh.
                       </p>
                       <button className="text-sm font-medium text-green-600 hover:text-green-700 underline">
                           Tải xuống ngay (.xlsx)
