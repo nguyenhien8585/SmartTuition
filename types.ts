@@ -63,6 +63,13 @@ export interface UserProfile {
   config: BankConfig;
 }
 
+export interface GithubConfig {
+    token: string;
+    owner: string;
+    repo: string;
+    path: string; // e.g. "data/backup.json"
+}
+
 export enum AppTab {
   INPUT = 'INPUT',
   LIST = 'LIST',
