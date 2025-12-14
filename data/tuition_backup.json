@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "timestamp": "2025-12-14T00:00:00.000Z",
+  "students": [
+    {
+      "id": "1",
+      "name": "Nguyễn Văn A",
+      "parentName": "Chị Lan",
+      "phone": "0912345678",
+      "className": "Toán 9",
+      "baseFee": 500000,
+      "balance": -500000,
+      "note": "",
+      "month": "12/2025",
+      "attendanceHistory": [],
+      "attendanceCount": 0,
+      "isPaid": false
+    },
+    {
+      "id": "2",
+      "name": "Trần Thị B",
+      "parentName": "Anh Hùng",
+      "phone": "0987654321",
+      "className": "Lý 10",
+      "baseFee": 600000,
+      "balance": 0,
+      "note": "",
+      "month": "12/2025",
+      "attendanceHistory": [],
+      "attendanceCount": 0,
+      "isPaid": false
+    },
+    {
+      "id": "3",
+      "name": "Lê Văn C",
+      "parentName": "Chị Mai",
+      "phone": "0909090909",
+      "className": "Toán 9",
+      "baseFee": 500000,
+      "balance": -1000000,
+      "note": "Nợ 2 tháng",
+      "month": "12/2025",
+      "attendanceHistory": [],
+      "attendanceCount": 0,
+      "isPaid": false
+    }
+  ],
+  "payments": [],
+  "bankConfig": {
+    "bankId": "970422",
+    "accountNo": "0123456789",
+    "accountName": "NGUYEN VAN A",
+    "template": "compact",
+    "bankName": "MB Bank",
+    "teacherName": "Cô Lan"
+  },
+  "profiles": [
+    {
+      "id": "default-profile-1",
+      "name": "Hồ sơ mặc định",
+      "config": {
+        "bankId": "970422",
+        "accountNo": "0123456789",
+        "accountName": "NGUYEN VAN A",
+        "template": "compact",
+        "bankName": "MB Bank",
+        "teacherName": "Cô Lan"
+      }
+    }
+  ]
+}

@@ -8,7 +8,7 @@ import { StudentRow } from './components/StudentRow';
 import { AttendanceManager } from './components/AttendanceManager';
 import { Student, BankConfig, AppTab } from './types';
 import { DEFAULT_BANK_CONFIG } from './constants';
-import { getStudents, saveStudents } from './services/storageService';
+import { getStudents, saveStudents, getGithubConfig, loadFromGitHub } from './services/storageService';
 import { FileText, Settings, AlertTriangle, PlusCircle, Filter, CalendarCheck, TrendingUp, DollarSign, Printer, FileSpreadsheet, Edit3, X, Save, Trash2, MessageSquare, CheckCircle, CalendarDays, Wallet, Search, Calculator, Lock, LogOut, KeyRound, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -55,6 +55,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [authError, setAuthError] = useState('');
+  
+  // Auto-sync State
+  const [isAutoSyncing, setIsAutoSyncing] = useState<boolean>(false);
+  const [autoSyncMessage, setAutoSyncMessage] = useState<string>('');
 
   // State
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.INPUT);
@@ -106,6 +110,65 @@ export default function App() {
           setIsAuthenticated(true);
       }
   }, []);
+
+  // Auto-sync on App Start
+  useEffect(() => {
+      if (!isAuthenticated) return;
+      
+      const performAutoSync = async () => {
+          const ghConfig = getGithubConfig();
+          
+          // Check if auto-sync is enabled
+          if (!ghConfig || !ghConfig.autoSync) return;
+          
+          // Check if config is complete
+          if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+          
+          console.log('🔄 Auto-sync enabled, syncing from GitHub...');
+          setIsAutoSyncing(true);
+          setAutoSyncMessage('Đang đồng bộ dữ liệu từ GitHub...');
+          
+          try {
+              // Use silent mode for auto-sync (no alert popups)
+              const success = await loadFromGitHub(ghConfig, true);
+              
+              if (success) {
+                  setAutoSyncMessage('✅ Đã đồng bộ dữ liệu thành công!');
+                  console.log('✅ Auto-sync completed successfully');
+                  
+                  // Hide message and reload after 1.5 seconds
+                  setTimeout(() => {
+                      setIsAutoSyncing(false);
+                      setAutoSyncMessage('');
+                      // Reload to apply new data
+                      window.location.reload();
+                  }, 1500);
+              } else {
+                  // Failed but don't block user - continue with local data
+                  setAutoSyncMessage('⚠️ Không thể đồng bộ, dùng dữ liệu local');
+                  console.warn('⚠️ Auto-sync failed, using local data');
+                  
+                  setTimeout(() => {
+                      setIsAutoSyncing(false);
+                      setAutoSyncMessage('');
+                  }, 2000);
+              }
+          } catch (error) {
+              console.error('Auto-sync error:', error);
+              setAutoSyncMessage('⚠️ Lỗi đồng bộ, dùng dữ liệu local');
+              
+              setTimeout(() => {
+                  setIsAutoSyncing(false);
+                  setAutoSyncMessage('');
+              }, 2000);
+          }
+      };
+      
+      // Run auto-sync after a short delay to avoid blocking initial render
+      const timer = setTimeout(performAutoSync, 500);
+      
+      return () => clearTimeout(timer);
+  }, [isAuthenticated]);
 
   // Hydrate Bank Config from localStorage
   useEffect(() => {
@@ -414,6 +477,19 @@ export default function App() {
   // --- RENDER MAIN APP ---
   return (
     <div className="min-h-screen pb-20 print:hidden font-sans">
+      {/* Auto-sync Loading Overlay */}
+      {isAutoSyncing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 text-center">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <RefreshCw className="text-blue-600 animate-spin" size={32} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">Đồng bộ dữ liệu</h3>
+                  <p className="text-gray-600">{autoSyncMessage}</p>
+              </div>
+          </div>
+      )}
+      
       {/* Navbar - Hidden on Print */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">

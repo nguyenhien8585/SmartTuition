@@ -1,0 +1,68 @@
+# File mẫu GitHub Actions để tự động backup (nâng cao)
+# Đổi tên file này thành auto-backup.yml để kích hoạt
+
+name: Auto Backup Reminder
+
+on:
+  schedule:
+    # Chạy lúc 9 giờ sáng mỗi Chủ nhật (UTC+0, cộng 7 tiếng = 16h VN)
+    - cron: '0 9 * * 0'
+  
+  # Cho phép chạy thủ công
+  workflow_dispatch:
+
+jobs:
+  backup-reminder:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check if backup file exists
+        id: check_backup
+        run: |
+          if [ -f "data/tuition_backup.json" ]; then
+            echo "Backup file exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Backup file not found"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+      
+      - name: Get last backup time
+        if: steps.check_backup.outputs.exists == 'true'
+        run: |
+          echo "Last backup: $(git log -1 --format=%cd data/tuition_backup.json || echo 'Never')"
+      
+      - name: Create Issue reminder
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const now = new Date();
+            const title = `📌 Nhắc nhở: Backup dữ liệu học phí - ${now.toLocaleDateString('vi-VN')}`;
+            const body = `
+            ## 👋 Xin chào!
+            
+            Đây là nhắc nhở tự động để backup dữ liệu học phí của bạn.
+            
+            ### ✅ Hành động cần làm:
+            1. Mở ứng dụng SmartTuition
+            2. Vào tab **Cấu Hình**
+            3. Click nút **"Lưu lên GitHub"**
+            4. Kiểm tra thông báo thành công
+            5. Đóng issue này sau khi hoàn thành
+            
+            ### 📊 Thống kê:
+            - Ngày tạo issue: ${now.toLocaleString('vi-VN')}
+            - Kỳ backup: Hàng tuần
+            
+            ---
+            _Issue này được tạo tự động bởi GitHub Actions_
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['reminder', 'backup']
+            });

@@ -68,6 +68,7 @@ export interface GithubConfig {
     owner: string;
     repo: string;
     path: string; // e.g. "data/backup.json"
+    autoSync?: boolean; // Auto-sync on app start
 }
 
 export enum AppTab {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BankConfig, UserProfile, GithubConfig } from '../types';
 import { VIETQR_BANKS, DEFAULT_BANK_CONFIG } from '../constants';
-import { CreditCard, Save, User, Users, Plus, Trash2, Check, Database, Download, Upload, RefreshCw, Github, Key, FolderGit2, AlertTriangle, Cloud } from 'lucide-react';
+import { CreditCard, Save, User, Users, Plus, Trash2, Check, Database, Download, Upload, RefreshCw, Github, Key, FolderGit2, AlertTriangle, Cloud, CheckCircle, CalendarDays } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { generateBackupData, restoreFromBackup, getGithubConfig, saveGithubConfig, saveToGitHub, loadFromGitHub } from '../services/storageService';
 
@@ -29,9 +29,12 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
       token: '',
       owner: '',
       repo: '',
-      path: 'data/tuition_backup.json'
+      path: 'data/tuition_backup.json',
+      autoSync: false
   });
   const [isGhLoading, setIsGhLoading] = useState(false);
+  const [ghTestStatus, setGhTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   // Load profiles from local storage on mount
   useEffect(() => {
@@ -67,6 +70,10 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
     // Load Github Config
     const savedGh = getGithubConfig();
     if (savedGh) setGhConfig(savedGh);
+
+    // Load last sync time
+    const lastSync = localStorage.getItem('smarttuition_last_sync');
+    if (lastSync) setLastSyncTime(lastSync);
   }, []);
 
   // Sync isManual check
@@ -218,6 +225,45 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
   };
 
   // --- GITHUB SYNC HANDLERS ---
+  const handleGhTestConnection = async () => {
+      if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) {
+          alert("Vui lòng nhập đầy đủ Token, Owner và Repository name");
+          return;
+      }
+      
+      setGhTestStatus('testing');
+      
+      try {
+          // Test API connection
+          const url = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}`;
+          const res = await fetch(url, {
+              headers: {
+                  Authorization: `Bearer ${ghConfig.token}`,
+                  Accept: "application/vnd.github.v3+json"
+              }
+          });
+          
+          if (res.ok) {
+              const data = await res.json();
+              setGhTestStatus('success');
+              alert(`✅ Kết nối thành công!\n\nRepository: ${data.full_name}\nPrivate: ${data.private ? 'Có' : 'Không'}\nMô tả: ${data.description || 'Không có'}`);
+              saveGithubConfig(ghConfig); // Save after successful test
+          } else if (res.status === 404) {
+              setGhTestStatus('error');
+              alert(`❌ Không tìm thấy repository "${ghConfig.owner}/${ghConfig.repo}".\n\nVui lòng kiểm tra:\n• Tên repository đúng chưa (phân biệt hoa thường)\n• Username đúng chưa\n• Repository có tồn tại không`);
+          } else if (res.status === 401) {
+              setGhTestStatus('error');
+              alert("❌ Token không hợp lệ hoặc đã hết hạn.\n\nVui lòng tạo token mới.");
+          } else {
+              setGhTestStatus('error');
+              alert(`❌ Lỗi ${res.status}: ${res.statusText}`);
+          }
+      } catch (error) {
+          setGhTestStatus('error');
+          alert(`❌ Lỗi kết nối:\n\n${error instanceof Error ? error.message : 'Unknown'}\n\nKiểm tra kết nối internet của bạn.`);
+      }
+  };
+
   const handleGhSave = async () => {
       if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) {
           alert("Vui lòng nhập đầy đủ Token, Owner và Repository name");
@@ -229,7 +275,12 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
       const success = await saveToGitHub(ghConfig);
       setIsGhLoading(false);
       
-      if (success) alert("Đã lưu dữ liệu lên GitHub thành công!");
+      if (success) {
+          const now = new Date().toLocaleString('vi-VN');
+          setLastSyncTime(now);
+          localStorage.setItem('smarttuition_last_sync', now);
+          alert("✅ Đã lưu dữ liệu lên GitHub thành công!");
+      }
   };
 
   const handleGhLoad = async () => {
@@ -239,14 +290,14 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
       }
       saveGithubConfig(ghConfig);
       
-      if (!confirm("CẢNH BÁO: Tải từ GitHub sẽ GHI ĐÈ dữ liệu hiện tại của bạn.\nTiếp tục?")) return;
+      if (!confirm("⚠️ CẢNH BÁO: Tải từ GitHub sẽ GHI ĐÈ dữ liệu hiện tại của bạn.\n\nBạn có chắc chắn muốn tiếp tục không?")) return;
 
       setIsGhLoading(true);
       const success = await loadFromGitHub(ghConfig);
       setIsGhLoading(false);
 
       if (success) {
-          alert("Đã đồng bộ dữ liệu từ GitHub thành công! Trang sẽ tải lại.");
+          alert("✅ Đã đồng bộ dữ liệu từ GitHub thành công!\n\nTrang sẽ tự động tải lại.");
           window.location.reload();
       }
   };
@@ -508,26 +559,130 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
                         className="w-full p-2 border border-gray-300 rounded focus:border-gray-800 outline-none text-sm font-mono text-gray-600"
                     />
                 </div>
+                
+                {/* Auto-sync toggle */}
+                <div className="pt-3 border-t border-gray-200">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                            type="checkbox"
+                            checked={ghConfig.autoSync || false}
+                            onChange={(e) => {
+                                const newConfig = {...ghConfig, autoSync: e.target.checked};
+                                setGhConfig(newConfig);
+                                saveGithubConfig(newConfig);
+                            }}
+                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                            <span className="font-semibold text-gray-800 group-hover:text-blue-600 transition">
+                                Tự động đồng bộ khi mở app
+                            </span>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Tải dữ liệu từ GitHub mỗi khi khởi động ứng dụng
+                            </p>
+                        </div>
+                    </label>
+                </div>
             </div>
 
-            <div className="flex gap-3 mt-4">
+            <div className="space-y-3 mt-4">
+                {/* Test Connection Button */}
                 <button 
-                    onClick={handleGhLoad}
-                    disabled={isGhLoading}
-                    className="flex-1 py-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-100 flex items-center justify-center gap-2"
+                    onClick={handleGhTestConnection}
+                    disabled={ghTestStatus === 'testing'}
+                    className={`w-full py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition ${
+                        ghTestStatus === 'success' ? 'bg-green-100 text-green-700 border-2 border-green-300' :
+                        ghTestStatus === 'error' ? 'bg-red-100 text-red-700 border-2 border-red-300' :
+                        'bg-blue-100 text-blue-700 border-2 border-blue-300 hover:bg-blue-200'
+                    }`}
                 >
-                    {isGhLoading ? <RefreshCw className="animate-spin" size={16}/> : <Download size={16} />}
-                    Tải về máy
+                    {ghTestStatus === 'testing' ? (
+                        <>
+                            <RefreshCw className="animate-spin" size={16}/>
+                            Đang kiểm tra...
+                        </>
+                    ) : ghTestStatus === 'success' ? (
+                        <>
+                            <CheckCircle size={16}/>
+                            Kết nối thành công!
+                        </>
+                    ) : ghTestStatus === 'error' ? (
+                        <>
+                            <AlertTriangle size={16}/>
+                            Kết nối thất bại
+                        </>
+                    ) : (
+                        <>
+                            <RefreshCw size={16}/>
+                            Test kết nối
+                        </>
+                    )}
                 </button>
-                <button 
-                    onClick={handleGhSave}
-                    disabled={isGhLoading}
-                    className="flex-1 py-2 bg-gray-800 text-white font-bold rounded-lg hover:bg-black flex items-center justify-center gap-2"
-                >
-                    {isGhLoading ? <RefreshCw className="animate-spin" size={16}/> : <Cloud size={16} />}
-                    Lưu lên GitHub
-                </button>
+
+                {/* Sync buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={handleGhLoad}
+                        disabled={isGhLoading}
+                        className="py-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {isGhLoading ? <RefreshCw className="animate-spin" size={16}/> : <Download size={16} />}
+                        Tải về máy
+                    </button>
+                    <button 
+                        onClick={handleGhSave}
+                        disabled={isGhLoading}
+                        className="py-2 bg-gray-800 text-white font-bold rounded-lg hover:bg-black flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {isGhLoading ? <RefreshCw className="animate-spin" size={16}/> : <Cloud size={16} />}
+                        Lưu lên GitHub
+                    </button>
+                </div>
+
+                {/* Last sync info */}
+                {lastSyncTime && (
+                    <div className="text-xs text-gray-500 text-center pt-1 flex items-center justify-center gap-1">
+                        <CalendarDays size={12}/>
+                        Lần backup cuối: {lastSyncTime}
+                    </div>
+                )}
             </div>
+        </div>
+
+        {/* Auto-sync Info */}
+        {ghConfig.autoSync && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
+                <h4 className="font-bold text-green-900 mb-2 flex items-center gap-2">
+                    <CheckCircle size={16}/> Tự động đồng bộ đã BẬT
+                </h4>
+                <p className="text-green-800">
+                    Dữ liệu sẽ được tự động tải từ GitHub mỗi khi bạn mở ứng dụng. 
+                    Đảm bảo luôn có dữ liệu mới nhất từ thiết bị khác.
+                </p>
+            </div>
+        )}
+
+        {/* Quick Guide */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+            <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-1">
+                💡 Hướng dẫn nhanh
+            </h4>
+            <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                <li>Tạo <strong>Private Repository</strong> trên GitHub</li>
+                <li>Tạo <strong>Personal Access Token</strong> với scope <code className="bg-blue-100 px-1 rounded">repo</code></li>
+                <li>Nhập thông tin ở trên</li>
+                <li>Click <strong>"Test kết nối"</strong> để kiểm tra</li>
+                <li>Bật <strong>"Tự động đồng bộ"</strong> nếu muốn</li>
+                <li>Dùng <strong>"Lưu lên GitHub"</strong> để backup</li>
+            </ol>
+            <a 
+                href="https://github.com/settings/tokens/new?scopes=repo&description=SmartTuition%20App"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 font-medium"
+            >
+                <Key size={14}/> Tạo Token ngay →
+            </a>
         </div>
       </div>
 
