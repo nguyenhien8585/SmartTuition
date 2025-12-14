@@ -216,7 +216,7 @@ export const saveToGitHub = async (config: GithubConfig): Promise<boolean> => {
     }
 };
 
-export const loadFromGitHub = async (config: GithubConfig): Promise<boolean> => {
+export const loadFromGitHub = async (config: GithubConfig, silent: boolean = false): Promise<boolean> => {
     try {
         const { token, owner, repo, path } = config;
         
@@ -277,7 +277,12 @@ export const loadFromGitHub = async (config: GithubConfig): Promise<boolean> => 
     } catch (error) {
         console.error("GitHub Load Error:", error);
         const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
-        alert(`❌ Lỗi tải từ GitHub:\n\n${errorMsg}\n\nVui lòng kiểm tra:\n• Kết nối internet\n• Repository và file path đúng\n• Đã backup lên GitHub chưa`);
+        
+        // Only show alert if not silent mode
+        if (!silent) {
+            alert(`❌ Lỗi tải từ GitHub:\n\n${errorMsg}\n\nVui lòng kiểm tra:\n• Kết nối internet\n• Repository và file path đúng\n• Đã backup lên GitHub chưa`);
+        }
+        
         return false;
     }
 };

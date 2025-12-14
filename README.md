@@ -14,6 +14,7 @@
 - 💰 **Theo dõi thanh toán**: Ghi nhận tiền mặt và chuyển khoản
 - 👥 **Đa hồ sơ**: Hỗ trợ nhiều giáo viên trên cùng thiết bị
 - ☁️ **Đồng bộ GitHub**: Lưu trữ dữ liệu an toàn trên cloud
+- 🔄 **Auto-Sync**: Tự động đồng bộ dữ liệu khi mở app ⚡ MỚI
 - 📤 **Xuất báo cáo**: Excel và PDF chỉ trong 1 click
 
 ## 🚀 Hướng dẫn chạy ứng dụng

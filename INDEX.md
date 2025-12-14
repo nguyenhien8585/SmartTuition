@@ -20,6 +20,12 @@
 - Từ cơ bản đến nâng cao
 - Mẹo và thủ thuật hay
 
+### 🔄 Tôi muốn tự động đồng bộ khi mở app
+→ Đọc **[docs/AUTO_SYNC.md](./docs/AUTO_SYNC.md)**
+- Tính năng Auto-Sync mới
+- Luôn có dữ liệu mới nhất
+- Làm việc đa thiết bị dễ dàng
+
 ### 💻 Tôi là developer, muốn biết đã thay đổi gì
 → Đọc **[CHANGELOG.md](./CHANGELOG.md)**
 - Tất cả thay đổi kỹ thuật

@@ -29,7 +29,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
       token: '',
       owner: '',
       repo: '',
-      path: 'data/tuition_backup.json'
+      path: 'data/tuition_backup.json',
+      autoSync: false
   });
   const [isGhLoading, setIsGhLoading] = useState(false);
   const [ghTestStatus, setGhTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -558,6 +559,30 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
                         className="w-full p-2 border border-gray-300 rounded focus:border-gray-800 outline-none text-sm font-mono text-gray-600"
                     />
                 </div>
+                
+                {/* Auto-sync toggle */}
+                <div className="pt-3 border-t border-gray-200">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                            type="checkbox"
+                            checked={ghConfig.autoSync || false}
+                            onChange={(e) => {
+                                const newConfig = {...ghConfig, autoSync: e.target.checked};
+                                setGhConfig(newConfig);
+                                saveGithubConfig(newConfig);
+                            }}
+                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                            <span className="font-semibold text-gray-800 group-hover:text-blue-600 transition">
+                                Tự động đồng bộ khi mở app
+                            </span>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Tải dữ liệu từ GitHub mỗi khi khởi động ứng dụng
+                            </p>
+                        </div>
+                    </label>
+                </div>
             </div>
 
             <div className="space-y-3 mt-4">
@@ -624,6 +649,19 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
             </div>
         </div>
 
+        {/* Auto-sync Info */}
+        {ghConfig.autoSync && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
+                <h4 className="font-bold text-green-900 mb-2 flex items-center gap-2">
+                    <CheckCircle size={16}/> Tự động đồng bộ đã BẬT
+                </h4>
+                <p className="text-green-800">
+                    Dữ liệu sẽ được tự động tải từ GitHub mỗi khi bạn mở ứng dụng. 
+                    Đảm bảo luôn có dữ liệu mới nhất từ thiết bị khác.
+                </p>
+            </div>
+        )}
+
         {/* Quick Guide */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
             <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-1">
@@ -634,6 +672,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({ config, onSave }) =>
                 <li>Tạo <strong>Personal Access Token</strong> với scope <code className="bg-blue-100 px-1 rounded">repo</code></li>
                 <li>Nhập thông tin ở trên</li>
                 <li>Click <strong>"Test kết nối"</strong> để kiểm tra</li>
+                <li>Bật <strong>"Tự động đồng bộ"</strong> nếu muốn</li>
                 <li>Dùng <strong>"Lưu lên GitHub"</strong> để backup</li>
             </ol>
             <a 
